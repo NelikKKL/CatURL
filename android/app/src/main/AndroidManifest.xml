@@ -18,7 +18,7 @@
         android:supportsRtl="true">
 
         <activity
-            android:name=".MainActivity"
+            android:name="io.github.caturl.caturl.MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity=""
@@ -26,6 +26,15 @@
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
+
+            <!-- v2 embedding marker - required, do not remove -->
+            <meta-data
+                android:name="flutterEmbedding"
+                android:value="2" />
+
+            <meta-data
+                android:name="io.flutter.embedding.android.NormalTheme"
+                android:resource="@style/NormalTheme" />
 
             <!-- Default launcher intent -->
             <intent-filter>
@@ -62,9 +71,6 @@
                 <data android:mimeType="application/internet-shortcut" />
             </intent-filter>
 
-            <meta-data
-                android:name="io.flutter.embedding.android.NormalTheme"
-                android:resource="@style/NormalTheme" />
         </activity>
 
         <!-- File provider for sharing created .url files -->
