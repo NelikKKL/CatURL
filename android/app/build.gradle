@@ -22,6 +22,9 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
 
+// True if a keystore is available (CI secrets or local key.properties)
+def hasKeystore = System.getenv("KEYSTORE_BASE64") || keystorePropertiesFile.exists()
+
 android {
     namespace "io.github.caturl.caturl"
     compileSdkVersion 35
@@ -48,25 +51,32 @@ android {
         versionName flutterVersionName
     }
 
-    signingConfigs {
-        release {
-            if (System.getenv("KEYSTORE_BASE64")) {
-                storeFile file("${rootDir}/keystore.jks")
-                storePassword System.getenv("KEYSTORE_PASSWORD") ?: ""
-                keyAlias System.getenv("KEY_ALIAS") ?: ""
-                keyPassword System.getenv("KEY_PASSWORD") ?: ""
-            } else if (keystorePropertiesFile.exists()) {
-                storeFile file(keystoreProperties['storeFile'])
-                storePassword keystoreProperties['storePassword']
-                keyAlias keystoreProperties['keyAlias']
-                keyPassword keystoreProperties['keyPassword']
+    if (hasKeystore) {
+        signingConfigs {
+            release {
+                if (System.getenv("KEYSTORE_BASE64")) {
+                    storeFile file("${rootDir}/keystore.jks")
+                    storePassword System.getenv("KEYSTORE_PASSWORD") ?: ""
+                    keyAlias System.getenv("KEY_ALIAS") ?: ""
+                    keyPassword System.getenv("KEY_PASSWORD") ?: ""
+                } else {
+                    storeFile file(keystoreProperties['storeFile'])
+                    storePassword keystoreProperties['storePassword']
+                    keyAlias keystoreProperties['keyAlias']
+                    keyPassword keystoreProperties['keyPassword']
+                }
             }
         }
     }
 
     buildTypes {
         release {
-            signingConfig signingConfigs.release
+            if (hasKeystore) {
+                signingConfig signingConfigs.release
+            } else {
+                // Fall back to debug signing so the build succeeds without a keystore
+                signingConfig signingConfigs.debug
+            }
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
