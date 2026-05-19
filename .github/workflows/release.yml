@@ -1,0 +1,148 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Release type'
+        required: true
+        default: 'apk'
+        type: choice
+        options:
+          - apk
+          - aab
+          - both
+
+jobs:
+  build:
+    name: Build Flutter App
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── Checkout ──────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── Java (required for Android builds) ────────────────────
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # ── Flutter ───────────────────────────────────────────────
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.0'
+          channel: 'stable'
+          cache: true
+
+      # ── Dependencies ──────────────────────────────────────────
+      - name: Get Flutter dependencies
+        run: flutter pub get
+
+      # ── Keystore setup ────────────────────────────────────────
+      - name: Decode keystore
+        if: env.KEYSTORE_BASE64 != ''
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 --decode > android/keystore.jks
+          echo "Keystore decoded successfully"
+
+      # ── Build APK ─────────────────────────────────────────────
+      - name: Build release APK
+        if: >
+          github.event_name == 'push' ||
+          inputs.release_type == 'apk' ||
+          inputs.release_type == 'both'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          flutter build apk --release --split-per-abi
+          echo "APK build complete"
+
+      # ── Build AAB ─────────────────────────────────────────────
+      - name: Build release AAB (App Bundle)
+        if: >
+          inputs.release_type == 'aab' ||
+          inputs.release_type == 'both'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          flutter build appbundle --release
+          echo "AAB build complete"
+
+      # ── List build artifacts ───────────────────────────────────
+      - name: List build artifacts
+        run: |
+          echo "=== APKs ==="
+          find build/app/outputs/flutter-apk -name "*.apk" 2>/dev/null || echo "No APKs found"
+          echo "=== AABs ==="
+          find build/app/outputs/bundle -name "*.aab" 2>/dev/null || echo "No AABs found"
+
+      # ── Upload APK artifacts ──────────────────────────────────
+      - name: Upload APK artifacts
+        if: >
+          github.event_name == 'push' ||
+          inputs.release_type == 'apk' ||
+          inputs.release_type == 'both'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-apks
+          path: build/app/outputs/flutter-apk/*.apk
+          if-no-files-found: warn
+
+      # ── Upload AAB artifacts ──────────────────────────────────
+      - name: Upload AAB artifact
+        if: >
+          inputs.release_type == 'aab' ||
+          inputs.release_type == 'both'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-aab
+          path: build/app/outputs/bundle/release/*.aab
+          if-no-files-found: warn
+
+      # ── Create GitHub Release (only on tag push) ───────────────
+      - name: Get version from tag
+        if: startsWith(github.ref, 'refs/tags/')
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "CatURL ${{ steps.version.outputs.VERSION }}"
+          tag_name: ${{ steps.version.outputs.VERSION }}
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.VERSION, '-') }}
+          generate_release_notes: true
+          files: |
+            build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+            build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
+            build/app/outputs/flutter-apk/app-x86_64-release.apk
+          body: |
+            ## CatURL ${{ steps.version.outputs.VERSION }}
+
+            ### Downloads
+            | Architecture | Download |
+            |---|---|
+            | arm64-v8a (modern phones) | `app-arm64-v8a-release.apk` |
+            | armeabi-v7a (older phones) | `app-armeabi-v7a-release.apk` |
+            | x86_64 (emulators) | `app-x86_64-release.apk` |
+
+            > **Tip:** Most modern Android phones should use the `arm64-v8a` APK.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
