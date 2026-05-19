@@ -37,7 +37,13 @@ class UrlOpenerApp extends StatelessWidget {
           );
         }
 
-        final textTheme = GoogleFonts.nunitoTextTheme();
+        // Use theme-aware base so text is white on dark, dark on light
+        final lightTextTheme = GoogleFonts.nunitoTextTheme(
+          ThemeData(brightness: Brightness.light).textTheme,
+        );
+        final darkTextTheme = GoogleFonts.nunitoTextTheme(
+          ThemeData(brightness: Brightness.dark).textTheme,
+        );
 
         return MaterialApp(
           title: 'CatURL',
@@ -45,13 +51,13 @@ class UrlOpenerApp extends StatelessWidget {
           theme: ThemeData(
             useMaterial3: true,
             colorScheme: lightScheme,
-            textTheme: textTheme,
+            textTheme: lightTextTheme,
             brightness: Brightness.light,
           ),
           darkTheme: ThemeData(
             useMaterial3: true,
             colorScheme: darkScheme,
-            textTheme: textTheme,
+            textTheme: darkTextTheme,
             brightness: Brightness.dark,
           ),
           themeMode: ThemeMode.system,

@@ -1,5 +1,6 @@
 package io.github.caturl.caturl
 
+import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -12,7 +13,9 @@ import java.io.FileOutputStream
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "io.github.caturl.caturl/intent"
+    private val FILE_PICK_REQUEST = 1001
     private var sharedFilePath: String? = null
+    private var pendingPickerResult: MethodChannel.Result? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -24,9 +27,33 @@ class MainActivity : FlutterActivity() {
                         result.success(sharedFilePath)
                         sharedFilePath = null
                     }
+                    "openFilePicker" -> {
+                        pendingPickerResult = result
+                        val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
+                            type = "*/*"
+                            addCategory(Intent.CATEGORY_OPENABLE)
+                        }
+                        startActivityForResult(
+                            Intent.createChooser(intent, "Open .url file"),
+                            FILE_PICK_REQUEST
+                        )
+                    }
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == FILE_PICK_REQUEST) {
+            if (resultCode == Activity.RESULT_OK && data?.data != null) {
+                val path = resolveUri(data.data!!)
+                pendingPickerResult?.success(path)
+            } else {
+                pendingPickerResult?.success(null)
+            }
+            pendingPickerResult = null
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -67,7 +94,6 @@ class MainActivity : FlutterActivity() {
             "file" -> uri.path
             "content" -> {
                 try {
-                    // Get file name from content URI
                     var fileName = "shortcut.url"
                     contentResolver.query(uri, null, null, null, null)?.use { cursor ->
                         val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
@@ -75,8 +101,6 @@ class MainActivity : FlutterActivity() {
                             fileName = cursor.getString(nameIndex)
                         }
                     }
-
-                    // Copy to cache dir
                     val cacheFile = File(cacheDir, fileName)
                     contentResolver.openInputStream(uri)?.use { input ->
                         FileOutputStream(cacheFile).use { output ->

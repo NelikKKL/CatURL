@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:file_picker/file_picker.dart';
+
 import '../models/url_entry.dart';
 import '../services/url_file_service.dart';
 import '../services/intent_handler.dart';
@@ -108,14 +108,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _openFilePicker() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['url'],
-      allowMultiple: false,
-    );
-
-    if (result != null && result.files.single.path != null) {
-      await _handleUrlFile(result.files.single.path!);
+    // Use native Android Intent picker — guaranteed to open file manager
+    final path = await IntentHandler.openFilePicker();
+    if (path != null) {
+      await _handleUrlFile(path);
     }
   }
 

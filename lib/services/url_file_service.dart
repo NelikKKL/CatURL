@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+// Android Downloads directory (standard path, no permission needed on Android 10+)
+const _downloadsPath = '/storage/emulated/0/Download';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -69,8 +71,15 @@ class UrlFileService {
     return result.type == ResultType.done;
   }
 
-  /// Get the default save directory for .url files
+  /// Get the default save directory for .url files (Downloads on Android)
   static Future<String> getDefaultDirectory() async {
+    if (Platform.isAndroid) {
+      final downloadsDir = Directory(_downloadsPath);
+      if (await downloadsDir.exists()) {
+        return downloadsDir.path;
+      }
+    }
+    // Fallback for iOS / desktop
     final dir = await getApplicationDocumentsDirectory();
     final urlDir = Directory('${dir.path}/URL Shortcuts');
     if (!await urlDir.exists()) {
