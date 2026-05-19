@@ -1,13 +1,14 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-// Android Downloads directory (standard path, no permission needed on Android 10+)
-const _downloadsPath = '/storage/emulated/0/Download';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:open_filex/open_filex.dart';
-import 'dart:convert';
 import '../models/url_entry.dart';
+
+// Android Downloads directory (standard path, no permission needed on Android 10+)
+const _downloadsPath = '/storage/emulated/0/Download';
 
 class UrlFileService {
   static const _storageKey = 'url_entries';
